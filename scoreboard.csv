@@ -1,0 +1,2 @@
+family,machine_id,model_name,window_size,horizon,threshold,pr_auc,brier_score,false_alert_rate,precision_at_threshold,recall_at_threshold,f1_at_threshold,metadata_file
+classifier,machine-1-1,hist_gb_classifier,60,30,0.95,0.05179271610699217,0.22355898373357852,0.18895558223289316,0.060859188544152745,0.5425531914893617,0.10944206008583691,scoreboard_metadata_001.txt

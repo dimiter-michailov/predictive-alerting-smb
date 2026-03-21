@@ -1,0 +1,38 @@
+machine_id: machine-1-1
+model_name: hist_gb_classifier
+window_size: 60
+horizon: 30
+
+fixed_hyperparameters:
+  loss=log_loss
+  early_stopping=True
+  random_state=42
+
+best_tuned_hyperparameters:
+  learning_rate=0.03
+  max_iter=100
+  max_leaf_nodes=15
+  min_samples_leaf=20
+
+threshold_selection:
+  selected_on=validation
+  rule=best_f1_with_margin_then_recall_then_precision
+  best_threshold=0.95
+
+model_selection:
+  rule=max_pr_auc_with_margin_then_min_brier_then_max_f1_then_recall_then_precision
+
+search_strategy:
+  type=staged_grid_search
+  stage_1=max_iter_100_for_all_branches
+  stage_2=refine_top_branches_with_higher_max_iter
+  branch_stop_rule=stop_if_metrics_clearly_deteriorate_when_max_iter_increases
+
+best_validation_metrics:
+  positive_rate=0.13926726162517614
+  pr_auc=0.7758892088113641
+  brier_score=0.0703067630071937
+  false_alert_rate=0.024010914051841747
+  precision_at_threshold=0.820040899795501
+  recall_at_threshold=0.6762225969645869
+  f1_at_threshold=0.7412199630314233

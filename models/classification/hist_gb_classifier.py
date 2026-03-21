@@ -3,7 +3,7 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 
 def make_sample_weights(y):
     """
-    Give higher weight to positive samples in imbalanced classes.
+    Give higher weight to positive samples based on class imbalance.
     """
     # Initialize vector as [1..1]
     weights = np.ones(len(y), dtype=float)
@@ -18,7 +18,8 @@ def make_sample_weights(y):
 
     return weights
 
-def train_hist_gb_classifier(X_train, y_train, verbose=1):
+def train_hist_gb_classifier(X_train, y_train, learning_rate=0.05, max_iter=300,
+                             max_leaf_nodes=31, min_samples_leaf=20, verbose=1):
     """
     Train the HistGradientBoostingClassifier.
     """
@@ -26,11 +27,11 @@ def train_hist_gb_classifier(X_train, y_train, verbose=1):
 
     model = HistGradientBoostingClassifier(
         loss="log_loss",
-        learning_rate=0.05,
-        max_iter=300,
-        max_leaf_nodes=31,
-        min_samples_leaf=20,
-        early_stopping=True,
+        learning_rate=learning_rate,
+        max_iter=max_iter,
+        max_leaf_nodes=max_leaf_nodes,
+        min_samples_leaf=min_samples_leaf,
+        early_stopping=False,
         random_state=42,
         verbose=verbose
     )

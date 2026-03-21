@@ -2,7 +2,7 @@ from utils.load_data import drop_constant_features, load_machine_data, get_const
 from utils.windowing import make_forecasting_windows, flatten_windows
 from models.forecasting.hist_gb_regressor import (train_hist_gb_regressor, prediction_hist_gb, err_scores_hist)
 from models.forecasting.ridge_regressor import (train_ridge_regressor, prediction_ridge, err_scores_ridge)
-from evaluation.regression_eval import (get_threshold_from_train_scores, evaluate_anomaly_scores, print_metrics)
+from evaluation.forecasting_eval import (get_threshold_from_train_scores, evaluate_anomaly_scores, print_metrics)
 
 def run_forecasting_single_machine(machine_id, model_name="hist_gb", window_size=60, 
                                    threshold_quantile=0.99,base_dir="data/per_machine"):
@@ -14,7 +14,6 @@ def run_forecasting_single_machine(machine_id, model_name="hist_gb", window_size
     X_train_reduced = drop_constant_features(X_train, constant_features)
     X_test_reduced = drop_constant_features(X_test, constant_features)
 
-    print(f"\nBuilding forecasting windows...")
     X_train_windows, y_train_next, train_end_indices = make_forecasting_windows(
         X_train_reduced,
         window_size=window_size
@@ -51,13 +50,13 @@ def run_forecasting_single_machine(machine_id, model_name="hist_gb", window_size
 
     aligned_y_test = y_test[test_end_indices + 1]
 
-    print(f"\nEvaluating anomaly prediction errors based on threshold...")
+    print(f"\nEvaluating anomaly prediction errors on chosen threshold...")
     metrics = evaluate_anomaly_scores(aligned_y_test, test_scores, threshold)
 
     print(f"\nMachine: {machine_id}")
     print(f"Model: {model_name}")
     print(f"Dropped constant features: {constant_features}")
-    print(f"Threshold from train scores: {threshold:.6f}")
+    print(f"Threshold choice based on train scores: {threshold:.6f}")
     print_metrics("Test", metrics)
 
     return {

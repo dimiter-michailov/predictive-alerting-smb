@@ -3,7 +3,6 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.multioutput import MultiOutputRegressor
 
 def train_hist_gb_regressor(X_train, y_train, verbose=1):
-    print(f"\nStarting hist_gb training...")
     base_model = HistGradientBoostingRegressor(
         loss="squared_error",
         learning_rate=0.05,

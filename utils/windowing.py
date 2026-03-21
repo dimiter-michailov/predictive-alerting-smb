@@ -3,7 +3,7 @@ import numpy as np
 def make_forecasting_windows(X, window_size):
     """
     Main SMD path:
-    Build windows for forecasting model (use past window data to predict the next point's value).
+    Build windows for forecasting model (use past window data to predict one future point's value).
 
     Returns:
         X_windows: (n_samples, window_size, n_features)
@@ -40,7 +40,6 @@ def make_classification_windows(X, y, window_size, horizon):
     X has shape (n_time_steps, n_features) -- point-wise features
     y has shape (n_time_steps,) -- point-wise truth labels
 
-    One training sample consists of:
     From a given time point 't':
         Input window: X[t - 'window_size' + 1 : t + 1] steps of 'N' features
         Future target: 'z_t' = 1 or 0, based on whether an anomaly occurrs in y[t + 1 : t + H] steps
