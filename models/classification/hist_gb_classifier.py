@@ -5,10 +5,8 @@ def make_sample_weights(y):
     """
     Give higher weight to positive samples based on class imbalance.
     """
-    # Initialize vector as [1..1]
     weights = np.ones(len(y), dtype=float)
 
-    # count positives/negatives
     n_pos = np.sum(y == 1)
     n_neg = np.sum(y == 0)
 
@@ -24,6 +22,7 @@ def train_hist_gb_classifier(X_train, y_train, learning_rate=0.05, max_iter=300,
     Train the HistGradientBoostingClassifier.
     """
     sample_weights = make_sample_weights(y_train)
+    print("\nTraining hist_gb classifier on the selected configuration")
 
     model = HistGradientBoostingClassifier(
         loss="log_loss",

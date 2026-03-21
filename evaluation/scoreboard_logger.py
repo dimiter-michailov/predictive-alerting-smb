@@ -65,6 +65,14 @@ def write_metadata_file(metadata_text):
     metadata_file.write_text(metadata_text, encoding="utf-8")
     return str(metadata_file.as_posix())
 
+def _read_scoreboard(csv_file, columns):
+    if csv_file.exists() and csv_file.stat().st_size > 0:
+        try:
+            return pd.read_csv(csv_file)
+        except EmptyDataError:
+            return pd.DataFrame(columns=columns)
+    return pd.DataFrame(columns=columns)
+
 def log_classifier_holdout(machine_id, model_name, window_size, horizon, threshold,
                            holdout_metrics, metadata_text="", csv_path="scoreboard.csv"):
     metadata_file = ""
@@ -88,18 +96,15 @@ def log_classifier_holdout(machine_id, model_name, window_size, horizon, thresho
     }
 
     csv_file = Path(csv_path)
+    df = _read_scoreboard(csv_file, SCOREBOARD_COLUMNS)
+    row_df = pd.DataFrame([row]).reindex(columns=SCOREBOARD_COLUMNS)
 
-    if csv_file.exists() and csv_file.stat().st_size > 0:
-        try:
-            df = pd.read_csv(csv_file)
-        except EmptyDataError:
-            df = pd.DataFrame(columns=SCOREBOARD_COLUMNS)
+    if df.empty:
+        df = row_df
     else:
-        df = pd.DataFrame(columns=SCOREBOARD_COLUMNS)
+        df = pd.concat([df, row_df], ignore_index=True)
 
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     df.to_csv(csv_file, index=False)
-
     return metadata_file
 
 def log_classifier_multi_holdout(machine_ids, model_name, window_size, horizon, threshold,
@@ -127,16 +132,13 @@ def log_classifier_multi_holdout(machine_ids, model_name, window_size, horizon, 
     }
 
     csv_file = Path(csv_path)
+    df = _read_scoreboard(csv_file, SCOREBOARD_MULTI_COLUMNS)
+    row_df = pd.DataFrame([row]).reindex(columns=SCOREBOARD_MULTI_COLUMNS)
 
-    if csv_file.exists() and csv_file.stat().st_size > 0:
-        try:
-            df = pd.read_csv(csv_file)
-        except EmptyDataError:
-            df = pd.DataFrame(columns=SCOREBOARD_MULTI_COLUMNS)
+    if df.empty:
+        df = row_df
     else:
-        df = pd.DataFrame(columns=SCOREBOARD_MULTI_COLUMNS)
+        df = pd.concat([df, row_df], ignore_index=True)
 
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
     df.to_csv(csv_file, index=False)
-
     return metadata_file

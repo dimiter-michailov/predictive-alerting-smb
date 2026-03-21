@@ -4,6 +4,12 @@ from pipelines.classification_pipeline import (
     run_classifier_multi_machine,
 )
 
+AVAILABLE_MACHINE_IDS = (
+    [f"machine-1-{i}" for i in range(1, 9)] +
+    [f"machine-2-{i}" for i in range(1, 10)] +
+    [f"machine-3-{i}" for i in range(1, 12)]
+)
+
 def ask_user_choice(prompt, valid_choices):
     while True:
         choice = input(prompt).strip()
@@ -47,64 +53,56 @@ def ask_float(prompt, min_value=None, max_value=None):
         except ValueError:
             print("Please enter a number.")
 
-def ask_non_empty_string(prompt):
-    while True:
-        value = input(prompt).strip()
-        if value:
-            return value
-        print("Input cannot be empty.")
+def print_available_machines():
+    print("\nAvailable machines:")
+    for index, machine_id in enumerate(AVAILABLE_MACHINE_IDS, start=1):
+        print(f"{index:2d} - {machine_id}")
 
-def parse_machine_ids(raw_text):
-    machine_ids = [item.strip() for item in raw_text.split(",") if item.strip()]
-    unique_machine_ids = []
+def parse_machine_number_list(raw_text, max_value):
+    parts = [part.strip() for part in raw_text.split(",") if part.strip()]
+    if not parts:
+        raise ValueError("Please enter at least one machine number.")
 
-    for machine_id in machine_ids:
-        if machine_id not in unique_machine_ids:
-            unique_machine_ids.append(machine_id)
+    numbers = []
+    seen = set()
 
-    return unique_machine_ids
+    for part in parts:
+        if not part.isdigit():
+            raise ValueError("Machine numbers must be integers separated by commas.")
 
-def ask_machine_id():
-    return ask_non_empty_string("Enter machine id (e.g. machine-1-1): ")
+        value = int(part)
+        if value < 1 or value > max_value:
+            raise ValueError(f"Machine numbers must be between 1 and {max_value}.")
 
-def ask_machine_ids():
-    print("\nChoose multi-machine input mode:")
-    print("1 - Enter comma-separated machine ids")
-    print("2 - Enter machine ids one by one")
+        if value not in seen:
+            seen.add(value)
+            numbers.append(value)
 
-    mode = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
+    return numbers
 
-    if mode == "1":
-        while True:
-            raw = input(
-                "Enter machine ids separated by commas\n"
-                "(e.g. machine-1-1, machine-1-2, machine-1-3): "
-            ).strip()
+def ask_single_machine_id():
+    print_available_machines()
+    machine_number = ask_int(
+        "\nEnter one machine number: ",
+        min_value=1,
+        max_value=len(AVAILABLE_MACHINE_IDS)
+    )
+    return AVAILABLE_MACHINE_IDS[machine_number - 1]
 
-            machine_ids = parse_machine_ids(raw)
-            if machine_ids:
-                return machine_ids
-
-            print("Please enter at least one machine id.")
-
-    machine_ids = []
-    print("\nEnter machine ids one by one. Press Enter on an empty line when done.")
+def ask_multi_machine_ids():
+    print_available_machines()
 
     while True:
-        prompt = f"Machine {len(machine_ids) + 1}: "
-        value = input(prompt).strip()
+        raw = input(
+            "\nEnter machine numbers separated by commas "
+            "(e.g. 1,2,3,5): "
+        ).strip()
 
-        if not value:
-            if machine_ids:
-                return machine_ids
-            print("Please enter at least one machine id.")
-            continue
-
-        if value in machine_ids:
-            print("This machine id is already added.")
-            continue
-
-        machine_ids.append(value)
+        try:
+            machine_numbers = parse_machine_number_list(raw, len(AVAILABLE_MACHINE_IDS))
+            return [AVAILABLE_MACHINE_IDS[number - 1] for number in machine_numbers]
+        except ValueError as exc:
+            print(exc)
 
 def main():
     print("Choose pipeline:")
@@ -113,9 +111,45 @@ def main():
 
     pipeline_type = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
 
-    if pipeline_type == "2":
-        machine_id = ask_machine_id()
+    if pipeline_type == "1":
+        print("\nChoose classification run mode:")
+        print("1 - Single-machine")
+        print("2 - Multi-machine")
 
+        run_mode = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
+        window_size = ask_int("Enter window size: ", min_value=1)
+        horizon = ask_int("Enter horizon H: ", min_value=1)
+
+        if run_mode == "1":
+            machine_id = ask_single_machine_id()
+
+            print("\nRun summary:")
+            print("  Mode: single-machine")
+            print(f"  Machine: {machine_id}")
+            print(f"  Window size: {window_size}")
+            print(f"  Horizon: {horizon}")
+
+            run_classifier_single_machine(
+                machine_id=machine_id,
+                window_size=window_size,
+                horizon=horizon,
+            )
+        else:
+            machine_ids = ask_multi_machine_ids()
+
+            print("\nRun summary:")
+            print("  Mode: multi-machine")
+            print(f"  Machines ({len(machine_ids)}): {', '.join(machine_ids)}")
+            print(f"  Window size: {window_size}")
+            print(f"  Horizon: {horizon}")
+
+            run_classifier_multi_machine(
+                machine_ids=machine_ids,
+                window_size=window_size,
+                horizon=horizon,
+            )
+
+    else:
         print("\nChoose forecasting model:")
         print("1 - hist_gb")
         print("2 - ridge")
@@ -129,6 +163,14 @@ def main():
             min_value=0.0,
             max_value=1.0
         )
+        machine_id = ask_single_machine_id()
+
+        print("\nRun summary:")
+        print("  Mode: forecasting")
+        print(f"  Machine: {machine_id}")
+        print(f"  Model: {model_name}")
+        print(f"  Window size: {window_size}")
+        print(f"  Threshold quantile: {threshold_quantile}")
 
         run_forecasting_single_machine(
             machine_id=machine_id,
@@ -136,46 +178,6 @@ def main():
             window_size=window_size,
             threshold_quantile=threshold_quantile,
         )
-
-    else:
-        print("\nChoose classification run mode:")
-        print("1 - Single-machine")
-        print("2 - Multi-machine")
-
-        run_mode = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
-
-        window_size = ask_int("Enter window size: ", min_value=1)
-        horizon = ask_int("Enter horizon H: ", min_value=1)
-
-        if run_mode == "1":
-            machine_id = ask_machine_id()
-
-            print("\nRun summary:")
-            print(f"  Mode: single-machine")
-            print(f"  Machine: {machine_id}")
-            print(f"  Window size: {window_size}")
-            print(f"  Horizon: {horizon}")
-
-            run_classifier_single_machine(
-                machine_id=machine_id,
-                window_size=window_size,
-                horizon=horizon,
-            )
-
-        else:
-            machine_ids = ask_machine_ids()
-
-            print("\nRun summary:")
-            print(f"  Mode: multi-machine")
-            print(f"  Machines ({len(machine_ids)}): {', '.join(machine_ids)}")
-            print(f"  Window size: {window_size}")
-            print(f"  Horizon: {horizon}")
-
-            run_classifier_multi_machine(
-                machine_ids=machine_ids,
-                window_size=window_size,
-                horizon=horizon,
-            )
 
 if __name__ == "__main__":
     main()

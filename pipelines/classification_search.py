@@ -74,7 +74,6 @@ def evaluate_classifier_config(X_train_flat, y_train_w, X_val_flat, y_val_w, par
         max_iter=params["max_iter"],
         max_leaf_nodes=params["max_leaf_nodes"],
         min_samples_leaf=params["min_samples_leaf"],
-        early_stopping=False,
         verbose=0,
     )
 
