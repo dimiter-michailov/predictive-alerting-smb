@@ -6,8 +6,11 @@ from pathlib import Path
 RAW_DATASET_DIR = Path("data/ServerMachineDataset")
 PER_MACHINE_DIR = Path("data/per_machine")
 
-
 def process_machine_file(filename: str) -> None:
+    """
+    Process the train, test, and test_label files for one machine.
+    Saves each NumPy array as a .pkl file.
+    """
     machine_name = Path(filename).stem
 
     for split in ["train", "test", "test_label"]:
@@ -20,8 +23,12 @@ def process_machine_file(filename: str) -> None:
             pickle.dump(array, f)
         print(f"Saved to {output_path}")
 
-
 def prepare_machine_data() -> None:
+    """
+    Looks through the 'train' folder.
+    Sort all .txt files and run the process function.
+    """
+
     PER_MACHINE_DIR.mkdir(parents=True, exist_ok=True)
 
     train_dir = RAW_DATASET_DIR / "train"
@@ -29,7 +36,6 @@ def prepare_machine_data() -> None:
 
     for filename in filenames:
         process_machine_file(filename)
-
 
 if __name__ == "__main__":
     prepare_machine_data()
