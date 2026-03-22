@@ -98,7 +98,7 @@ def run_staged_classifier_search(X_train_flat, y_train_w, X_val_flat, y_val_w):
     max_possible_fits = len(branch_grid) + 2 * min(3, len(branch_grid))
 
     for branch in branch_grid:
-        print(f"Trying config {fit_count}/{max_possible_fits}...")
+        print(f"\nTrying config {fit_count}/{max_possible_fits}...")
         params = {
             "learning_rate": branch["learning_rate"],
             "max_iter": 100,

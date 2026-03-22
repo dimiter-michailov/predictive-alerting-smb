@@ -73,6 +73,9 @@ def _read_scoreboard(csv_file, columns):
             return pd.DataFrame(columns=columns)
     return pd.DataFrame(columns=columns)
 
+def _round4(value):
+    return round(value, 4)
+
 def log_classifier_holdout(machine_id, model_name, window_size, horizon, threshold,
                            holdout_metrics, metadata_text="", csv_path="scoreboard.csv"):
     metadata_file = ""
@@ -85,13 +88,13 @@ def log_classifier_holdout(machine_id, model_name, window_size, horizon, thresho
         "model_name": model_name,
         "window_size": window_size,
         "horizon": horizon,
-        "threshold": threshold,
-        "pr_auc": holdout_metrics["pr_auc"],
-        "brier_score": holdout_metrics["brier_score"],
-        "false_alert_rate": holdout_metrics["false_alert_rate"],
-        "precision_at_threshold": holdout_metrics["precision_at_threshold"],
-        "recall_at_threshold": holdout_metrics["recall_at_threshold"],
-        "f1_at_threshold": holdout_metrics["f1_at_threshold"],
+        "threshold": _round4(threshold),
+        "pr_auc": _round4(holdout_metrics["pr_auc"]),
+        "brier_score": _round4(holdout_metrics["brier_score"]),
+        "false_alert_rate": _round4(holdout_metrics["false_alert_rate"]),
+        "precision_at_threshold": _round4(holdout_metrics["precision_at_threshold"]),
+        "recall_at_threshold": _round4(holdout_metrics["recall_at_threshold"]),
+        "f1_at_threshold": _round4(holdout_metrics["f1_at_threshold"]),
         "metadata_file": metadata_file,
     }
 
@@ -116,18 +119,18 @@ def log_classifier_multi_holdout(machine_ids, model_name, window_size, horizon, 
 
     row = {
         "family": "classifier_multi",
-        "machine_ids": "|".join(machine_ids),
+        "machine_ids": ", ".join(machine_ids),
         "n_machines": len(machine_ids),
         "model_name": model_name,
         "window_size": window_size,
         "horizon": horizon,
-        "threshold": threshold,
-        "pr_auc": holdout_metrics["pr_auc"],
-        "brier_score": holdout_metrics["brier_score"],
-        "false_alert_rate": holdout_metrics["false_alert_rate"],
-        "precision_at_threshold": holdout_metrics["precision_at_threshold"],
-        "recall_at_threshold": holdout_metrics["recall_at_threshold"],
-        "f1_at_threshold": holdout_metrics["f1_at_threshold"],
+        "threshold": _round4(threshold),
+        "pr_auc": _round4(holdout_metrics["pr_auc"]),
+        "brier_score": _round4(holdout_metrics["brier_score"]),
+        "false_alert_rate": _round4(holdout_metrics["false_alert_rate"]),
+        "precision_at_threshold": _round4(holdout_metrics["precision_at_threshold"]),
+        "recall_at_threshold": _round4(holdout_metrics["recall_at_threshold"]),
+        "f1_at_threshold": _round4(holdout_metrics["f1_at_threshold"]),
         "metadata_file": metadata_file,
     }
 

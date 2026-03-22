@@ -1,99 +1,86 @@
 # Predictive-Alerting-SMB
 
-This repository is my solution for a predictive alerting / incident prediction task on multivariate metrics.
+This repository is my solution for a predictive alerting task on multivariate metrics.
 
-The core task is:
+The core task formulation is:
 
-> given the previous **W** time steps of one or more multivariate metrics, predict whether an incident / anomaly will happen within the next **H** time steps.
+> given the previous **W** time steps of multivariate metrics, predict whether an incident/anomaly will happen within the next **H** steps.
 
 I built the project around two main approaches:
 
-- **forecasting-based anomaly detection**, formulated as single-step and multi-step future regression
-- **binary classification for predictive alerting**, formulated as predicting whether an anomaly will occur within a given future horizon `H`
+- **forecasting-based detection**, formulated as future regression.
+- **binary classification**, formulated as probabilistic prediction on whether an anomaly will occur within a horizon `H`.
 
-The main pipeline for the actual task is the **binary classification** one.  
-The forecasting pipeline is included as another very justifiable approach and comparison.
+The pipeline that aligns closer to the given task formulation is the **binary classification**.
+The forecasting pipeline is included as another justifiable approach and comparison.
 
 ---
 
 ## Quick comparison of the two approaches
 
-### 1) Forecasting-based anomaly detection
+### 1) Forecasting-based
 
-Given a window `W` of multivariate points, predict future multivariate point(s), then detect anomalies based on prediction error.
+Given a window `W` of multivariate points, output future multivariate point(s). Detect anomalies based on prediction error.
 
 This is a **regression** problem.
 
 #### Benefits
-- can be trained on unlabeled normal data
-- is the more standard anomaly-detection formulation
-- is useful especially in circumstances when labels are limited
+- can be trained on unlabeled normal-condition data
+- is the more standard anomaly-detection approach
+- is especially useful when labels are limited or(and) anomalies are rare
 
 #### Cons
-- not the cleanest direct formulation of the interview task, which is really about predicting whether an anomaly will happen within the next horizon `H`
+- not the cleanest direct formulation of the interview task
 - predicts metric values first, not directly the probability of an incident within a future time window
 
 ---
 
-### 2) Binary classification for predictive alerting
+### 2) Binary classification
 
-Given a window `W` of multivariate points, predict whether an anomaly will occur within a future horizon window `H`.
+Given a window `W` of multivariate points, output a probability that an anomaly will occur within a future horizon `H`.
 
 This is a **binary classification** problem.
 
-The target is:
-- `1` if any anomaly happens within the next `H` steps
-- `0` otherwise
-
-The model outputs a probability, which is then converted into an alert using a chosen threshold.  
-Model selection is mainly driven by PR-AUC, while threshold selection is based on F1 with recall/precision tie-breaking.
+*Prediction quality is mainly judged by PR-AUC, while threshold selection is based on F1 with recall as the second priority.*
 
 #### Benefits
-- directly matches the predictive alerting task
-- outputs a probability score that can be thresholded into an alert
-- makes the operating point explicit and tunable depending on alerting priorities
+- more closely matches the predictive alerting task description
+- makes the *false alerting* trade-off easier to tune depending on priorities / budgets
 
 #### Cons
 - cannot train directly on unlabeled normal train data
 - needs supervised labels
 
-This is the main focus of the project.
-
 ---
 
 ## Dataset used
-
 The dataset used is **SMD (Server Machine Dataset)**.
 
-I chose it because it is close to server / cloud monitoring.
+I chose it because it is close to a server / cloud monitoring environment.
 
-### Useful SMD facts for this project
+### Useful SMD summary
 - there are **28 machines**
 - each machine has **38 features**
 - labels live only on the **test split**
-- the official `train` split is normal / unlabeled
+- the official `train` split is unlabeled normal-condition data
 
-That matters a lot for how the pipelines are built.
-
-For example:
+This shapes the pipelines in the following way:
 - the forecasting pipeline can train on the unlabeled normal train data
 - the supervised binary classifier cannot do that, so it is built from labeled windows made from `X_test / y_test`
 
-### What characteristics of the dataset mattered for this task
-For predictive alerting, it is not just about having labels.
-
-What matters a lot is:
-- **positive rate**
-- **anomaly interval sizes**
-- **gap sizes between anomaly intervals**
-
-From exploratory analysis, the anomaly intervals are not all tiny isolated spikes. There are both short and long anomalous segments, and the gaps between intervals are often large enough to make horizon-based labeling meaningful. That makes the dataset more suitable for predictive alerting than a setup where anomalies are either too dense or too fragmented.
+### What other characteristics of the dataset mattered
+- strong class imbalance: positives (anomalies) are relatively rare
+- **anomaly interval sizes** vary a lot, from short-lived intervals to much longer intervals
+- **gap sizes between anomaly intervals** vary as well
+- machines are heterogeneous in anomaly frequency and behavior
+- many machines have constant features, but they are not the same on all machines
+- splitting the labeled test set chronologically can make it hard to keep enough positives in train / validation / holdout
+- within a single machine, features can be strongly correlated
+- across machines, anomaly behavior is not globally synchronized
 
 ---
 
-## Binary classification setup
-
-### For the single-machine setup
+# Single-machine setup (Binary Classifier)
 The workflow is:
 
 1. create classification windows from labeled test data
@@ -103,27 +90,30 @@ The workflow is:
    - holdout
 3. flatten each multivariate window
 4. train the classifier
-5. choose the threshold automatically on validation
+5. choose the best-performing threshold on validation
 6. evaluate once on holdout
 
 ## Multi-machine classification setup
-
 The multi-machine extension uses **one shared classifier across multiple chosen machines**.
 
 For each chosen machine:
 - create windows separately
 - split chronologically into train / validation / holdout
+- keep the same feature width so pooled samples remain compatible
 
 Then:
 - pool all train windows together
 - pool all validation windows together
 - pool all holdout windows together
 
-So the current multi-machine setup is:
-- train one shared model on all chosen machines
-- validate on the pooled validation windows of those machines
-- choose the best threshold on the pooled validation probabilities
-- test once on the pooled holdout windows
+So the current multi-machine setup:
+- trains one shared model on pooled train windows
+- validates on the pooled validation windows
+- chooses the best threshold on the pooled validation probabilities
+- tests once on the pooled holdout windows
+
+This works without padding / truncation / masking because samples are pooled **row-wise**:
+each flattened window becomes one row, and machines can contribute different numbers of rows as long as the feature width is the same.
 
 ---
 
@@ -132,62 +122,36 @@ So the current multi-machine setup is:
 ### Classification
 
 #### HistogramGradientBoostingClassifier
-This is the main classifier used for predictive alerting.
-
-Used for:
-- single-machine classification
-- multi-machine classification
-
-Why this model:
 - handles non-linear interactions well
 - fast enough for repeated validation-based tuning
-- strong and practical tabular baseline for structured time-window features
-- gradient-boosted tree models are widely used in industry for tabular prediction problems because they often give strong performance without heavy feature engineering
+- tree-based models are a strong choice here because flattened windows produce tabular feature vectors, and boosted trees can model effects accross threshold and non-linear decision boundaries well
 
 ---
 
 ### Forecasting
 
 #### HistogramGradientBoostingRegressor
-Used for forecasting-based anomaly detection.
-
-Current use:
-- single future-point prediction baseline
-- validation-based tuning
-- train on unlabeled normal train data
-- test on labeled test data
-
-Why this model:
-- can model non-linear relationships in multivariate tabular windows
-- boosted tree regressors are also a common industry choice when the problem is framed as supervised regression on engineered tabular features
+- can model non-linear relationships
+- tree-based regressors are useful here for similar reasons: they handle non-linearity and mixed signal strength well
 
 #### Ridge
 Used as a simple forecasting baseline.
-
 It is there mainly as a reference point against the tree-based regressor.
 
 ---
 
 ## Hyperparameter search
-
 The tuned hyperparameters are:
 - `learning_rate`
 - `max_iter`
 - `max_leaf_nodes`
 - `min_samples_leaf`
 
-### Search logic
-The search is done in stages:
-
-- **Stage 1**: reduced pass over a smaller set of branches with `max_iter=100`
-- **Stage 2**: refine only the strongest branches with larger `max_iter`
-
-This keeps the search more computationally reasonable than brute-forcing everything.
+Rather than relying on one arbitrary configuration, the search makes model selection more systematic.
 
 ---
 
 ## Threshold selection
-
 The threshold is **not manually entered**.
 
 Instead:
@@ -203,46 +167,90 @@ Current rule:
 
 ---
 
-## Important metrics
+## Important metrics (Binary Classifier)
 
 1. **PR-AUC** as the main quality metric
 2. **Brier score** as the next metric
-3. **F1 / recall / precision at the chosen threshold** as operating-point metrics
+3. **F1 / recall / precision at the chosen threshold** as threshold-specific metrics
 
 ### Why PR-AUC
-This is an imbalanced task, so PR-AUC is more useful here than ROC-AUC for the main report.
+This is an imbalanced task, so PR-AUC is more informative pure accuracy or the alternative ROC-AUC.
 
 ### Why Brier score
-The classifier outputs probabilities, so probability quality matters too, not just ranking quality.
+Good probability quality usually translates to strong performance on all other metrics.
 
 ---
 
 ## Forecasting setup
-
 The idea is:
 
 - predict future multivariate values
 - compare prediction vs actual
 - use prediction error as the anomaly score
-- alert when the prediction error crosses a threshold
+- alert when the prediction error crosses a `threshold` (also chosen with a grid on validation)
 
-This is useful because it can train on unlabeled normal data.
+---
+
+## How to run
+`main.py` provides the interactive entry flow for choosing:
+- the pipeline
+- the model / run mode
+- the main configuration values such as window size and horizon
+
+---
+
+## Scoreboards
+The repository writes experiment results to:
+
+- `scoreboard.csv` for single-machine runs
+- `scoreboard_multi_summary.csv` for multi-machine runs
+
+The main fields to watch are:
+- model / setup information
+- `window_size`
+- `horizon`
+- applied `threshold`
+- `pr_auc`
+- `brier_score`
+- `precision_at_threshold`
+- `recall_at_threshold`
+- `f1_at_threshold`
+
+Even more complete metadata text files for individual runs are stored in `scoreboard_metadata/`.
+
+For viewing the CSV scoreboards directly in VS Code, I suggest the **CSV** extension by **ReprEng**.
 
 ---
 
 ## Repository structure
-
-```text
 predictive-alerting-smb/
 ├── data/
+│   ├── per_machine/
+│   └── ServerMachineDataset/
 ├── evaluation/
+│   ├── classification_eval.py
+│   ├── classification_metadata.py
+│   ├── forecasting_eval.py
+│   └── scoreboard_logger.py
 ├── models/
+│   ├── classification/
+│   │   └── hist_gb_classifier.py
+│   └── forecasting/
+│       ├── hist_gb_regressor.py
+│       └── ridge_regressor.py
 ├── notebooks/
+│   ├── eda.ipynb
+│   └── multi_eda.ipynb
 ├── pipelines/
 │   ├── classification_pipeline.py
-│   └── forecasting_pipeline.py
+│   ├── classification_search.py
+│   ├── forecasting_pipeline.py
+│   └── multi_classification_prepare.py
 ├── scoreboard_metadata/
 ├── utils/
+│   ├── chrono_splitting.py
+│   ├── load_data.py
+│   └── windowing.py
 ├── main.py
 ├── prepare_machine_data.py
 ├── README.md

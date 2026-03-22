@@ -29,7 +29,6 @@ def evaluate_probabilities(y_true, y_proba, threshold=0.5):
         "f1_at_threshold": float(f1_score(y_true, y_pred, zero_division=0)),
         "confusion_matrix": cm,
     }
-
     return metrics
 
 def make_threshold_grid(y_proba):

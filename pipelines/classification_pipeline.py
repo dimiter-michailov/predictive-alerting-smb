@@ -1,16 +1,14 @@
+import numpy as np
 from models.classification.hist_gb_classifier import predict_probabilities
 from evaluation.classification_eval import evaluate_probabilities, print_metrics
 from evaluation.scoreboard_logger import log_classifier_holdout, log_classifier_multi_holdout
-from evaluation.classification_metadata import (
-    build_classifier_metadata_text,
-    build_classifier_multi_metadata_text,
-)
+from evaluation.classification_metadata import (build_classifier_metadata_text, build_classifier_multi_metadata_text)
 from pipelines.multi_classification_prepare import (
     prepare_classifier_machine_data,
+    apply_shared_constant_feature_drop,
     pool_prepared_machines,
 )
 from pipelines.classification_search import run_staged_classifier_search
-
 
 def run_classifier_single_machine(machine_id, window_size=60, horizon=30, base_dir="data/per_machine"):
     prepared = prepare_classifier_machine_data(
@@ -20,6 +18,12 @@ def run_classifier_single_machine(machine_id, window_size=60, horizon=30, base_d
         base_dir=base_dir,
         drop_constants=True,
     )
+
+    if not prepared["train_has_both_classes"]:
+        raise ValueError(f"{machine_id}: train split has one class")
+
+    if not prepared["val_has_both_classes"]:
+        raise ValueError(f"{machine_id}: val split has one class")
 
     best_result = run_staged_classifier_search(
         prepared["X_train_flat"],
@@ -79,9 +83,10 @@ def run_classifier_single_machine(machine_id, window_size=60, horizon=30, base_d
         "metadata_file": metadata_file,
     }
 
-
-def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_dir="data/per_machine"):
+def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_dir="data/per_machine",
+                                 drop_shared_constants=True, add_machine_indicators=True):
     prepared_machines = []
+    skipped_machines = []
 
     for machine_id in machine_ids:
         prepared = prepare_classifier_machine_data(
@@ -91,9 +96,34 @@ def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_d
             base_dir=base_dir,
             drop_constants=False,
         )
+
+        if not prepared["train_has_both_classes"] or not prepared["val_has_both_classes"]:
+            print(f"Skipping {machine_id}")
+            skipped_machines.append(machine_id)
+            continue
+
         prepared_machines.append(prepared)
 
-    pooled = pool_prepared_machines(prepared_machines)
+    if not prepared_machines:
+        raise ValueError("No valid machines in pool")
+
+    shared_constant_features = []
+    if drop_shared_constants:
+        prepared_machines, shared_constant_features = apply_shared_constant_feature_drop(
+            prepared_machines,
+            window_size=window_size,
+        )
+
+    pooled = pool_prepared_machines(
+        prepared_machines,
+        add_machine_indicators=add_machine_indicators,
+    )
+
+    if len(np.unique(pooled["y_train_pool"])) < 2:
+        raise ValueError("Pooled train has one class")
+
+    if len(np.unique(pooled["y_val_pool"])) < 2:
+        raise ValueError("Pooled val has one class")
 
     best_result = run_staged_classifier_search(
         pooled["X_train_pool"],
@@ -114,9 +144,15 @@ def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_d
         threshold=best_threshold
     )
 
+    used_machine_ids = [item["machine_id"] for item in prepared_machines]
+
     print("\nMulti-machine run")
-    print(f"Machines: {machine_ids}")
+    print(f"Machines: {used_machine_ids}")
+    if skipped_machines:
+        print(f"Skipped machines: {skipped_machines}")
     print("Model: hist_gb_classifier")
+    print(f"Dropped shared constant features: {shared_constant_features}")
+    print(f"Added machine indicators: {add_machine_indicators}")
     print(f"Chosen hyperparameters: {best_params}")
     print(f"Chosen threshold from pooled validation: {best_threshold:.6f}")
     print_metrics("Pooled validation", best_val_metrics)
@@ -139,7 +175,7 @@ def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_d
         start += n_machine_holdout
 
     metadata_text = build_classifier_multi_metadata_text(
-        machine_ids=machine_ids,
+        machine_ids=used_machine_ids,
         window_size=window_size,
         horizon=horizon,
         best_params=best_params,
@@ -148,7 +184,7 @@ def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_d
     )
 
     metadata_file = log_classifier_multi_holdout(
-        machine_ids=machine_ids,
+        machine_ids=used_machine_ids,
         model_name="hist_gb_classifier",
         window_size=window_size,
         horizon=horizon,
@@ -159,7 +195,8 @@ def run_classifier_multi_machine(machine_ids, window_size=60, horizon=30, base_d
     )
 
     return {
-        "machine_ids": machine_ids,
+        "machine_ids": used_machine_ids,
+        "skipped_machines": skipped_machines,
         "model_name": "hist_gb_classifier",
         "best_params": best_params,
         "best_threshold": best_threshold,

@@ -1,0 +1,39 @@
+machine_ids: machine-2-2, machine-2-3, machine-2-4, machine-3-3, machine-3-4, machine-3-5, machine-3-6, machine-3-7
+n_machines: 8
+model_name: hist_gb_classifier
+window_size: 60
+horizon: 20
+
+fixed_hyperparameters:
+  loss=log_loss
+  early_stopping=False
+  random_state=42
+
+best_tuned_hyperparameters:
+  learning_rate=0.03
+  max_iter=300
+  max_leaf_nodes=31
+  min_samples_leaf=50
+
+threshold_selection:
+  selected_on=pooled_validation
+  rule=best_f1_with_margin_then_recall_then_precision
+  best_threshold=0.3
+
+model_selection:
+  rule=max_pr_auc_with_margin_then_min_brier_then_max_f1_then_recall_then_precision
+
+search_strategy:
+  type=staged_grid_search
+  stage_1=max_iter_100_for_all_branches
+  stage_2=refine_top_branches_with_higher_max_iter
+  branch_stop_rule=stop_if_metrics_clearly_deteriorate_when_max_iter_increases
+
+best_pooled_validation_metrics:
+  positive_rate=0.14729421380649116
+  pr_auc=0.6606632542506123
+  brier_score=0.08640063244908049
+  false_alert_rate=0.07312884415688153
+  precision_at_threshold=0.5995188101487314
+  recall_at_threshold=0.633757225433526
+  f1_at_threshold=0.616162751489266

@@ -13,10 +13,12 @@ def chronological_split(X, y, end_indices, train_frac=0.7, val_frac=0.15, gap=0)
     test_start = val_end + gap
 
     if val_start > val_end:
-        raise ValueError("Gap is too large: validation split invalid.")
+        # gap is based on the chosen horizon H
+        raise ValueError("\nGap is too large: validation split invalid.")
 
     if test_start > n_samples:
-        raise ValueError("Gap is too large: test split invalid.")
+        # gap is based on the chosen horizon H
+        raise ValueError("\nGap is too large: test split invalid.")
 
     X_train = X[:train_end]
     y_train = y[:train_end]
@@ -31,7 +33,7 @@ def chronological_split(X, y, end_indices, train_frac=0.7, val_frac=0.15, gap=0)
     end_test = end_indices[test_start:]
 
     if len(X_train) == 0 or len(X_val) == 0 or len(X_test) == 0:
-        raise ValueError("Empty chronological split.")
+        raise ValueError("\nEmpty chronological split.")
 
     return (
         X_train, y_train, end_train,

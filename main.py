@@ -15,7 +15,7 @@ def ask_user_choice(prompt, valid_choices):
         choice = input(prompt).strip()
         if choice in valid_choices:
             return choice
-        print(f"Invalid choice. Choose one of: {valid_choices}")
+        print(f"\nInvalid choice. Choose one of: {valid_choices}")
 
 def ask_int(prompt, min_value=None, max_value=None):
     while True:
@@ -23,17 +23,17 @@ def ask_int(prompt, min_value=None, max_value=None):
             value = int(input(prompt).strip())
 
             if min_value is not None and value < min_value:
-                print(f"Please enter an integer >= {min_value}.")
+                print(f"\nPlease enter an integer >= {min_value}.")
                 continue
 
             if max_value is not None and value > max_value:
-                print(f"Please enter an integer <= {max_value}.")
+                print(f"\nPlease enter an integer <= {max_value}.")
                 continue
 
             return value
 
         except ValueError:
-            print("Please enter an integer.")
+            print("\nPlease enter an integer.")
 
 def ask_float(prompt, min_value=None, max_value=None):
     while True:
@@ -41,17 +41,17 @@ def ask_float(prompt, min_value=None, max_value=None):
             value = float(input(prompt).strip())
 
             if min_value is not None and value < min_value:
-                print(f"Please enter a number >= {min_value}.")
+                print(f"\nPlease enter a number >= {min_value}.")
                 continue
 
             if max_value is not None and value > max_value:
-                print(f"Please enter a number <= {max_value}.")
+                print(f"\nPlease enter a number <= {max_value}.")
                 continue
 
             return value
 
         except ValueError:
-            print("Please enter a number.")
+            print("\nPlease enter a number.")
 
 def print_available_machines():
     print("\nAvailable machines:")
@@ -61,18 +61,18 @@ def print_available_machines():
 def parse_machine_number_list(raw_text, max_value):
     parts = [part.strip() for part in raw_text.split(",") if part.strip()]
     if not parts:
-        raise ValueError("Please enter at least one machine number.")
+        raise ValueError("\nPlease enter at least one machine number.")
 
     numbers = []
     seen = set()
 
     for part in parts:
         if not part.isdigit():
-            raise ValueError("Machine numbers must be integers separated by commas.")
+            raise ValueError("\nMachine numbers must be integers separated by commas.")
 
         value = int(part)
         if value < 1 or value > max_value:
-            raise ValueError(f"Machine numbers must be between 1 and {max_value}.")
+            raise ValueError(f"\nMachine numbers must be between 1 and {max_value}.")
 
         if value not in seen:
             seen.add(value)
@@ -106,8 +106,8 @@ def ask_multi_machine_ids():
 
 def main():
     print("Choose pipeline:")
-    print("1 - Binary classification model (anomaly within next H steps)")
-    print("2 - Forecasting model (predict next point, alert above error threshold)")
+    print("1 - Binary classification model (predict whether an incident will occur within the next H steps)")
+    print("2 - Forecasting/regression model (forecast future metric value(s); alert when prediction error exceeds a threshold)")
 
     pipeline_type = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
 
@@ -150,34 +150,54 @@ def main():
             )
 
     else:
-        print("\nChoose forecasting model:")
-        print("1 - hist_gb")
-        print("2 - ridge")
+        print("\nChoose forecasting mode:")
+        print("1 - HistGB single-point forecast")
+        print("2 - HistGB recursive H-step forecast path")
 
-        model_choice = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
-        model_name = "hist_gb" if model_choice == "1" else "ridge"
-
+        forecast_mode = ask_user_choice("Enter 1 or 2: ", {"1", "2"})
         window_size = ask_int("Enter window size: ", min_value=1)
         threshold_quantile = ask_float(
-            "Enter threshold quantile in [0, 1] (e.g. 0.99): ",
+            "\nEnter threshold quantile in [0, 1] (e.g. 0.99): ",
             min_value=0.0,
             max_value=1.0
         )
         machine_id = ask_single_machine_id()
 
-        print("\nRun summary:")
-        print("  Mode: forecasting")
-        print(f"  Machine: {machine_id}")
-        print(f"  Model: {model_name}")
-        print(f"  Window size: {window_size}")
-        print(f"  Threshold quantile: {threshold_quantile}")
+        if forecast_mode == "1":
+            print("\nRun summary:")
+            print("  Mode: forecasting")
+            print("  Forecast type: HistGB single-point")
+            print(f"  Machine: {machine_id}")
+            print(f"  Window size: {window_size}")
+            print(f"  Horizon: 1")
+            print(f"  Threshold quantile: {threshold_quantile}")
 
-        run_forecasting_single_machine(
-            machine_id=machine_id,
-            model_name=model_name,
-            window_size=window_size,
-            threshold_quantile=threshold_quantile,
-        )
+            run_forecasting_single_machine(
+                machine_id=machine_id,
+                model_name="hist_gb_single",
+                window_size=window_size,
+                horizon=1,
+                threshold_quantile=threshold_quantile,
+            )
+
+        else:
+            horizon = ask_int("Enter recursive forecast horizon H: ", min_value=1)
+
+            print("\nRun summary:")
+            print("  Mode: forecasting")
+            print("  Forecast type: HistGB recursive H-step")
+            print(f"  Machine: {machine_id}")
+            print(f"  Window size: {window_size}")
+            print(f"  Horizon: {horizon}")
+            print(f"  Threshold quantile: {threshold_quantile}")
+
+            run_forecasting_single_machine(
+                machine_id=machine_id,
+                model_name="hist_gb_recursive_h",
+                window_size=window_size,
+                horizon=horizon,
+                threshold_quantile=threshold_quantile,
+            )
 
 if __name__ == "__main__":
     main()
